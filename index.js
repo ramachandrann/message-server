@@ -4,6 +4,7 @@ var io = require('socket.io')(http);
 
 var socketsBasket = [];
 
+
 /* TODOs
   1. Each socket participates in the consumer group for messages.
   2. Every socket in the  consumer group receives all the messages.
@@ -38,19 +39,9 @@ consumer.on('message', function (message) {
     let messageValueJson = JSON.parse(message.value);
     console.log(message.value);
     let messageValuePayloadJson = messageValueJson.payload;    
-    if(messageValuePayloadJson != null && messageValuePayloadJson.after != null) {
-      //TODO: filter based on socket or user id
-      connection.query('SELECT * FROM message', function (error, results, fields) {
-        if (error) throw error;
-        console.log(messageValuePayloadJson.after);
-        io.emit('message-awaiting', results);
-      });
-      //TODO: filter based on socket or user id
-      connection.query('SELECT count(*) as cnt FROM message', function (error, results, fields) {
-        if (error) throw error;        
-        console.log(results[0].cnt);
-        io.emit('message-count', {socketId: 1, messageCount: results[0].cnt});
-      });
+    if(messageValuePayloadJson != null) {
+      getUnReadMessageCount(1);
+      getMessagesForUser(1);
     }
 });
 
@@ -61,21 +52,16 @@ app.get('/', function(req, res){
 io.on('connection', function(socket){
   console.log(socket.id + ' user connected.');  
   socketsBasket.push(socket.id);
- 
-  //setInterval(emitMessageCount, 3000, socket.id);
 
   socket.on('disconnect', function(){
     console.log(socket.id + ' user disconnected');
   });
-
-  socket.on('chat message', function(msg){
-    console.log('message: ' + msg);
-    //send the message to everyone, including the sender.
-    io.emit('chat message', msg);
-    //send a message to everyone except for a certain socket
-    //socket.broadcast.emit('hi');
+ 
+  socket.on('establish-identity', function(userId) {
+    console.log('USER ID:', userId);
+    getUnReadMessageCount(userId);
+    getMessagesForUser(userId);
   });
-
 });
 
 http.listen(3000, function(){
@@ -84,10 +70,19 @@ http.listen(3000, function(){
 
 /*function emitMessageCount(socketId) {
     io.to(socketId).emit('message-count', {socketId: socketId, messageCount: getRandomInt(0,10)}); 
+}*/
+
+function getUnReadMessageCount(userId) {
+   connection.query("SELECT COUNT(*) AS cnt FROM message WHERE hasRead='N' AND userId=" + userId, function (error, results, fields) {
+    if (error) throw error;        
+    console.log(results[0].cnt);
+    io.emit('message-count', {socketId: 1, messageCount: results[0].cnt});
+  });
 }
 
-function getRandomInt(min, max) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min)) + min;
-}*/
+function getMessagesForUser(userId) {
+  connection.query("SELECT * FROM message WHERE hasRead='N' AND userId=" + userId + " ORDER BY createdOn DESC", function (error, results, fields) {
+    if (error) throw error;
+    io.emit('message-awaiting', results);
+  });
+}
