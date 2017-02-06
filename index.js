@@ -45,10 +45,6 @@ consumer.on('message', function (message) {
     }
 });
 
-app.get('/', function(req, res){
-  res.sendFile(__dirname + '/index.html');
-});
-
 io.on('connection', function(socket){
   console.log(socket.id + ' user connected.');  
   socketsBasket.push(socket.id);
@@ -76,13 +72,13 @@ function getUnReadMessageCount(userId) {
    connection.query("SELECT COUNT(*) AS cnt FROM message WHERE hasRead='N' AND userId=" + userId, function (error, results, fields) {
     if (error) throw error;        
     console.log(results[0].cnt);
-    io.emit('message-count', {socketId: 1, messageCount: results[0].cnt});
+    io.emit('unread-message-count', results[0].cnt);
   });
 }
 
 function getMessagesForUser(userId) {
   connection.query("SELECT * FROM message WHERE hasRead='N' AND userId=" + userId + " ORDER BY createdOn DESC", function (error, results, fields) {
     if (error) throw error;
-    io.emit('message-awaiting', results);
+    io.emit('get-messages', results);
   });
 }
