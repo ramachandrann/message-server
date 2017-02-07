@@ -46,6 +46,7 @@ consumer.on('message', function (message) {
 });
 
 io.on('connection', function(socket){
+  console.log('log input param : ' + socket.handshake.query.userId);
   console.log(socket.id + ' user connected.');  
   socketsBasket.push(socket.id);
 
